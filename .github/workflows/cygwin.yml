@@ -54,7 +54,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4
       - uses: cygwin/cygwin-install-action@006ad0b0946ca6d0a3ea2d4437677fa767392401 # v4
         with:
           platform: ${{ matrix.platform }}

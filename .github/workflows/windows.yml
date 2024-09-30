@@ -63,7 +63,7 @@ jobs:
       - run: git config --global core.autocrlf input
         shell: pwsh
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4
 
       - uses: msys2/setup-msys2@ddf331adaebd714795f1042345e6ca57bd66cea8 # v2
         if: ${{ matrix.sys == 'msys' }}
@@ -315,7 +315,7 @@ jobs:
           ls -l
 
       - run: git config --global core.autocrlf input
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4
 
       - name: 'cmake configure'
         timeout-minutes: 5
@@ -402,7 +402,7 @@ jobs:
       - name: 'install packages'
         run: sudo apt-get --quiet 2 --option Dpkg::Use-Pty=0 install mingw-w64 ${{ matrix.build == 'cmake' && 'ninja-build' || '' }}
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4
 
       - name: 'autotools autoreconf'
         if: ${{ matrix.build == 'autotools' }}
@@ -564,7 +564,7 @@ jobs:
 
       fail-fast: false
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4
 
       - name: 'vcpkg cache setup'
         uses: actions/github-script@v7
