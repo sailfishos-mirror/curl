@@ -3073,13 +3073,16 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
        */
       if(!curltls)
         result = CURLE_OUT_OF_MEMORY;
-      else
+      else {
         result = curl_easy_getinfo(curltls, CURLINFO_TLS_SSL_PTR,
                                    &tls_backend_info);
+        if(!result)
+          using_schannel =
+            (tls_backend_info->backend == CURLSSLBACKEND_SCHANNEL);
+      }
       curl_easy_cleanup(curltls);
       if(result)
         return result;
-      using_schannel = (tls_backend_info->backend == CURLSSLBACKEND_SCHANNEL);
     }
 
     /* Set the CA cert locations specified in the environment. For Windows if
