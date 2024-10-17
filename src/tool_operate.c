@@ -3057,18 +3057,29 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
      !config->cacert &&
      !config->capath &&
      (!config->insecure_ok || (config->doh_url && !config->doh_insecure_ok))) {
-    CURL *curltls = curl_easy_init();
-    struct curl_tlssessioninfo *tls_backend_info = NULL;
+    static int using_schannel = -1; /* -1 = not checked
+                                       0 = nope
+                                       1 = yes */
 
-    /* With the addition of CAINFO support for Schannel, this search could find
-     * a certificate bundle that was previously ignored. To maintain backward
-     * compatibility, only perform this search if not using Schannel.
-     */
-    result = curl_easy_getinfo(curltls, CURLINFO_TLS_SSL_PTR,
-                               &tls_backend_info);
-    if(result) {
+    if(using_schannel == -1) {
+      CURL *curltls = curl_easy_init();
+      /* The TLS backend remains, so keep the info */
+      struct curl_tlssessioninfo *tls_backend_info = NULL;
+
+      /* With the addition of CAINFO support for Schannel, this search could
+       * find a certificate bundle that was previously ignored. To maintain
+       * backward compatibility, only perform this search if not using
+       * Schannel.
+       */
+      if(!curltls)
+        result = CURLE_OUT_OF_MEMORY;
+      else
+        result = curl_easy_getinfo(curltls, CURLINFO_TLS_SSL_PTR,
+                                   &tls_backend_info);
       curl_easy_cleanup(curltls);
-      return result;
+      if(result)
+        return result;
+      using_schannel = (tls_backend_info->backend == CURLSSLBACKEND_SCHANNEL);
     }
 
     /* Set the CA cert locations specified in the environment. For Windows if
@@ -3079,14 +3090,13 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
      * ignored. We allow setting CA location for Schannel only when explicitly
      * specified by the user via CURLOPT_CAINFO / --cacert.
      */
-    if(tls_backend_info->backend != CURLSSLBACKEND_SCHANNEL) {
+    if(!using_schannel) {
       char *env;
       env = curl_getenv("CURL_CA_BUNDLE");
       if(env) {
         config->cacert = strdup(env);
         curl_free(env);
         if(!config->cacert) {
-          curl_easy_cleanup(curltls);
           errorf(global, "out of memory");
           return CURLE_OUT_OF_MEMORY;
         }
@@ -3097,7 +3107,6 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
           config->capath = strdup(env);
           curl_free(env);
           if(!config->capath) {
-            curl_easy_cleanup(curltls);
             errorf(global, "out of memory");
             return CURLE_OUT_OF_MEMORY;
           }
@@ -3110,7 +3119,6 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
           if(!config->cacert) {
             if(capath_from_env)
               free(config->capath);
-            curl_easy_cleanup(curltls);
             errorf(global, "out of memory");
             return CURLE_OUT_OF_MEMORY;
           }
@@ -3132,7 +3140,6 @@ static CURLcode transfer_per_config(struct GlobalConfig *global,
       }
 #endif
     }
-    curl_easy_cleanup(curltls);
   }
 
   if(!result)
