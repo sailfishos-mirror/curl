@@ -884,22 +884,13 @@ static bool authcmp(const char *auth, const char *line)
 }
 #endif
 
-/*
- * Curl_http_input_auth() deals with Proxy-Authenticate: and WWW-Authenticate:
- * headers. They are dealt with both in the transfer.c main loop and in the
- * proxy CONNECT loop.
- */
-CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
-                              const char *auth) /* the first non-space */
+static CURLcode http_input_auth(struct Curl_easy *data, bool proxy,
+                                const char *auth) /* the first non-space */
 {
   /*
    * This resource requires authentication
    */
   struct connectdata *conn = data->conn;
-#ifdef USE_SPNEGO
-  curlnegotiate *negstate = proxy ? &conn->proxy_negotiate_state :
-    &conn->http_negotiate_state;
-#endif
 #if defined(USE_SPNEGO) ||                      \
   defined(USE_NTLM) ||                          \
   !defined(CURL_DISABLE_DIGEST_AUTH) ||         \
@@ -949,6 +940,8 @@ CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
 
         if(authp->picked == CURLAUTH_NEGOTIATE) {
           CURLcode result = Curl_input_negotiate(data, conn, proxy, auth);
+          curlnegotiate *negstate = proxy ? &conn->proxy_negotiate_state :
+            &conn->http_negotiate_state;
           if(!result) {
             free(data->req.newurl);
             data->req.newurl = strdup(data->state.url);
@@ -1054,13 +1047,26 @@ CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
       auth++;
     if(*auth == ',') /* if we are on a comma, skip it */
       auth++;
-    while(ISSPACE(*auth))
+    while(ISBLANK(*auth))
       auth++;
   }
 
   return CURLE_OK;
 }
 
+/*
+ * Curl_http_input_auth() deals with Proxy-Authenticate: and WWW-Authenticate:
+ * headers. They are dealt with both in the transfer.c main loop and in the
+ * proxy CONNECT loop.
+ */
+
+CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
+                              const char *auth) /* the first non-space */
+{
+  DEBUGASSERT(data);
+  DEBUGASSERT(auth);
+  return http_input_auth(data, proxy, auth);
+}
 /**
  * http_should_fail() determines whether an HTTP response code has gotten us
  * into an error state or not.
