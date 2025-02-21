@@ -141,7 +141,7 @@ CURLcode Curl_http_write_resp_hd(struct Curl_easy *data,
 /* These functions are in http.c */
 CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
                               const char *auth)
-  CURL_NONNULL2(1,3);
+  CURL_NONNULL2(1, 3);
 
 CURLcode Curl_http_auth_act(struct Curl_easy *data);
 
