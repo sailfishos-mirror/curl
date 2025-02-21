@@ -935,7 +935,7 @@ static CURLcode auth_ntlm(struct Curl_easy *data,
       if(!result)
         data->state.authproblem = FALSE;
       else {
-        infof(data, "Authentication problem. Ignoring this.");
+        infof(data, "NTLM authentication problem, ignoring.");
         data->state.authproblem = TRUE;
       }
     }
@@ -965,7 +965,7 @@ static CURLcode auth_digest(struct Curl_easy *data,
      * Digest */
     result = Curl_input_digest(data, proxy, auth);
     if(result) {
-      infof(data, "Authentication problem. Ignoring this.");
+      infof(data, "Digest authentication problem, ignoring.");
       data->state.authproblem = TRUE;
     }
   }
@@ -985,7 +985,7 @@ static CURLcode auth_basic(struct Curl_easy *data,
        anyway, which basically means our name+password is not
        valid. */
     authp->avail = CURLAUTH_NONE;
-    infof(data, "Authentication problem. Ignoring this.");
+    infof(data, "Basic authentication problem, ignoring.");
     data->state.authproblem = TRUE;
   }
   return CURLE_OK;
@@ -1003,7 +1003,7 @@ static CURLcode auth_bearer(struct Curl_easy *data,
     /* We asked for Bearer authentication but got a 40X back
        anyway, which basically means our token is not valid. */
     authp->avail = CURLAUTH_NONE;
-    infof(data, "Authentication problem. Ignoring this.");
+    infof(data, "Bearer authentication problem, ignoring.");
     data->state.authproblem = TRUE;
   }
   return CURLE_OK;
