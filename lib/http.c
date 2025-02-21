@@ -1015,7 +1015,6 @@ static CURLcode auth_bearer(struct Curl_easy *data,
  * headers. They are dealt with both in the transfer.c main loop and in the
  * proxy CONNECT loop.
  */
-
 CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
                               const char *auth) /* the first non-space */
 {
