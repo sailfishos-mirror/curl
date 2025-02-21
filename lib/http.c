@@ -1084,10 +1084,11 @@ CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
       break;
 
     /* there may be multiple methods on one line, so keep reading */
-    while(*auth && *auth != ',') /* read up to the next comma */
+    auth = strchr(auth, ',');
+    if(auth) /* if we are on a comma, skip it */
       auth++;
-    if(*auth == ',') /* if we are on a comma, skip it */
-      auth++;
+    else
+      break;
     while(ISBLANK(*auth))
       auth++;
   }
