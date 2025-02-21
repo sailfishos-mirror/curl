@@ -1010,8 +1010,14 @@ static CURLcode auth_bearer(struct Curl_easy *data,
 }
 #endif
 
-static CURLcode http_input_auth(struct Curl_easy *data, bool proxy,
-                                const char *auth) /* the first non-space */
+/*
+ * Curl_http_input_auth() deals with Proxy-Authenticate: and WWW-Authenticate:
+ * headers. They are dealt with both in the transfer.c main loop and in the
+ * proxy CONNECT loop.
+ */
+
+CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
+                              const char *auth) /* the first non-space */
 {
   /*
    * This resource requires authentication
@@ -1026,6 +1032,7 @@ static CURLcode http_input_auth(struct Curl_easy *data, bool proxy,
   struct auth *authp;
   CURLcode result = CURLE_OK;
   DEBUGASSERT(auth);
+  DEBUGASSERT(data);
 
   if(proxy) {
     availp = &data->info.proxyauthavail;
@@ -1093,19 +1100,6 @@ static CURLcode http_input_auth(struct Curl_easy *data, bool proxy,
   return result;
 }
 
-/*
- * Curl_http_input_auth() deals with Proxy-Authenticate: and WWW-Authenticate:
- * headers. They are dealt with both in the transfer.c main loop and in the
- * proxy CONNECT loop.
- */
-
-CURLcode Curl_http_input_auth(struct Curl_easy *data, bool proxy,
-                              const char *auth) /* the first non-space */
-{
-  DEBUGASSERT(data);
-  DEBUGASSERT(auth);
-  return http_input_auth(data, proxy, auth);
-}
 /**
  * http_should_fail() determines whether an HTTP response code has gotten us
  * into an error state or not.
