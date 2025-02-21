@@ -951,10 +951,10 @@ static CURLcode auth_digest(struct Curl_easy *data,
                             struct auth *authp,
                             unsigned long *availp)
 {
-  CURLcode result = CURLE_OK;
   if(authp->avail & CURLAUTH_DIGEST)
     infof(data, "Ignoring duplicate digest auth header.");
   else if(Curl_auth_is_digest_supported()) {
+    CURLcode result;
 
     *availp |= CURLAUTH_DIGEST;
     authp->avail |= CURLAUTH_DIGEST;
@@ -969,7 +969,7 @@ static CURLcode auth_digest(struct Curl_easy *data,
       data->state.authproblem = TRUE;
     }
   }
-  return result;
+  return CURLE_OK;
 }
 #endif
 
