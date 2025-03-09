@@ -626,7 +626,7 @@ CURLcode glob_match_url(char **result, const char *filename,
       curl_off_t num;
       struct URLPattern *pat = NULL;
       filename++;
-      if(!curlx_str_number(&filename, &num, glob->size)) {
+      if(!curlx_str_number(&filename, &num, glob->size) && num) {
         unsigned long i;
         num--; /* make it zero based */
         /* find the correct glob entry */
