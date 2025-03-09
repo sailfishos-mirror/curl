@@ -417,10 +417,11 @@ void write_linked_location(CURL *curl, const char *location, size_t loclen,
   char *vver = getenv("VTE_VERSION");
 
   if(vver) {
-    long vvn = strtol(vver, NULL, 10);
-    /* Skip formatting for old versions of VTE <= 0.48.1 (Mar 2017) since some
-       of those versions have formatting bugs. (#10428) */
-    if(0 < vvn && vvn <= 4801)
+    curl_off_t num;
+    if(curlx_strtoofft(vver, NULL, 10, &num) ||
+       /* Skip formatting for old versions of VTE <= 0.48.1 (Mar 2017) since
+          some of those versions have formatting bugs. (#10428) */
+       (num <= 4801))
       goto locout;
   }
 
