@@ -342,7 +342,7 @@ ParameterError secs2ms(long *valp, const char *str)
       fracs /= 10;
       len--;
     }
-    ms = (fracs * 1000) / digs[len - 1];
+    ms = ((long)fracs * 1000) / digs[len - 1];
   }
 
   *valp = (long)secs * 1000 + ms;
