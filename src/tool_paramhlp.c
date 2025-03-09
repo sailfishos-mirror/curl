@@ -325,10 +325,10 @@ ParameterError secs2ms(long *valp, const char *str)
 {
   curl_off_t secs;
   long ms = 0;
-  const unsigned int digs[] = { 10, 100, 1000, 10000, 100000, 10000000,
-    10000000, 100000000, 1000000000 };
+  const unsigned int digs[] = { 1, 10, 100, 1000, 10000, 1000000,
+    1000000, 10000000, 100000000 };
   if(!str ||
-     curlx_str_number(&str, &secs, CURL_OFF_T_MAX/1000))
+     curlx_str_number(&str, &secs, CURL_OFF_T_MAX/100))
     return PARAM_BAD_NUMERIC;
   if(!curlx_str_single(&str, '.')) {
     curl_off_t fracs;
@@ -338,11 +338,11 @@ ParameterError secs2ms(long *valp, const char *str)
       return PARAM_NUMBER_TOO_LARGE;
     /* how many milliseconds are in fracs ? */
     len = (str - s);
-    while((len > sizeof(CURL_ARRAYSIZE(digs)) || (fracs > LONG_MAX/1000))) {
+    while((len > sizeof(CURL_ARRAYSIZE(digs)) || (fracs > LONG_MAX/100))) {
       fracs /= 10;
       len--;
     }
-    ms = ((long)fracs * 1000) / digs[len - 1];
+    ms = ((long)fracs * 100) / digs[len - 1];
   }
 
   *valp = (long)secs * 1000 + ms;
