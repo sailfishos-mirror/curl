@@ -251,7 +251,7 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
   }
   else if(ISDIGIT(*pattern)) {
     /* numeric range detected */
-    unsigned long min_n;
+    unsigned long min_n = 0;
     unsigned long max_n = 0;
     unsigned long step_n = 0;
     curl_off_t num;
