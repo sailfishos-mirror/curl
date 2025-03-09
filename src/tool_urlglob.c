@@ -216,7 +216,7 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
       if(end_c == ':') {
         curl_off_t num;
         const char *p = &pattern[4];
-        if(curlx_str_number(&p, &num, ULONG_MAX) ||
+        if(curlx_str_number(&p, &num, 256) ||
            curlx_str_single(&p, ']'))
           step = 0;
         pattern = p;
@@ -232,7 +232,7 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
 
     *posp += (pattern - *patternp);
 
-    if(!pmatch || !step || step > (unsigned)INT_MAX ||
+    if(!pmatch || !step ||
        (min_c == max_c && step != 1) ||
        (min_c != max_c && (min_c > max_c || step > (unsigned)(max_c - min_c) ||
                            (max_c - min_c) > ('z' - 'a'))))
@@ -278,7 +278,7 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
           if(!curlx_str_single(&pattern, ']'))
             step_n = 1;
           else if(!curlx_str_single(&pattern, ':') &&
-                  !curlx_str_number(&pattern, &num, ULONG_MAX) &&
+                  !curlx_str_number(&pattern, &num, CURL_OFF_T_MAX) &&
                   !curlx_str_single(&pattern, ']')) {
             step_n = (unsigned long)num;
           }
