@@ -216,11 +216,11 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
       if(end_c == ':') {
         curl_off_t num;
         const char *p = &pattern[4];
-        if(curlx_str_number(&p, &num, 256) ||
-           curlx_str_single(&p, ']'))
+        if(curlx_str_number(&p, &num, 256) || curlx_str_single(&p, ']'))
           step = 0;
+        else
+          step = (unsigned long)num;
         pattern = p;
-        step = (unsigned long)num;
       }
       else if(end_c != ']')
         /* then this is wrong */
