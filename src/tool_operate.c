@@ -796,6 +796,242 @@ static CURLcode append2query(struct GlobalConfig *global,
   return result;
 }
 
+static CURLcode etag_compare(struct GlobalConfig *global,
+                             struct OperationConfig *config)
+{
+  CURLcode result = CURLE_OK;
+  char *etag_from_file = NULL;
+  char *header = NULL;
+  ParameterError pe;
+
+  /* open file for reading: */
+  FILE *file = fopen(config->etag_compare_file, FOPEN_READTEXT);
+  if(!file)
+    warnf(global, "Failed to open %s: %s", config->etag_compare_file,
+          strerror(errno));
+
+  if((PARAM_OK == file2string(&etag_from_file, file)) &&
+     etag_from_file) {
+    header = aprintf("If-None-Match: %s", etag_from_file);
+    tool_safefree(etag_from_file);
+  }
+  else
+    header = aprintf("If-None-Match: \"\"");
+
+  if(!header) {
+    if(file)
+      fclose(file);
+    errorf(global,
+           "Failed to allocate memory for custom etag header");
+    return CURLE_OUT_OF_MEMORY;
+  }
+
+  /* add Etag from file to list of custom headers */
+  pe = add2list(&config->headers, header);
+  tool_safefree(header);
+
+  if(file)
+    fclose(file);
+  if(pe != PARAM_OK)
+    result = CURLE_OUT_OF_MEMORY;
+  return result;
+}
+
+static CURLcode etag_store(struct GlobalConfig *global,
+                           struct OperationConfig *config,
+                           struct OutStruct *etag_save)
+{
+  if(config->create_dirs) {
+    CURLcode result = create_dir_hierarchy(config->etag_save_file, global);
+    if(result)
+      return result;
+  }
+
+  /* open file for output: */
+  if(strcmp(config->etag_save_file, "-")) {
+    FILE *newfile = fopen(config->etag_save_file, "ab");
+    if(!newfile) {
+      struct State *state = &config->state;
+      warnf(global, "Failed creating file for saving etags: \"%s\". "
+            "Skip this transfer", config->etag_save_file);
+      tool_safefree(state->outfiles);
+      glob_cleanup(&state->urls);
+      return CURLE_OK;
+    }
+    else {
+      etag_save->filename = config->etag_save_file;
+      etag_save->s_isreg = TRUE;
+      etag_save->fopened = TRUE;
+      etag_save->stream = newfile;
+    }
+  }
+  else {
+    /* always use binary mode for protocol header output */
+    CURL_SET_BINMODE(etag_save->stream);
+  }
+  return CURLE_OK;
+}
+
+static CURLcode setup_headerfile(struct GlobalConfig *global,
+                                 struct OperationConfig *config,
+                                 struct per_transfer *per,
+                                 struct OutStruct *heads)
+{
+  /* open file for output: */
+  if(!strcmp(config->headerfile, "%")) {
+    heads->stream = stderr;
+    /* use binary mode for protocol header output */
+    CURL_SET_BINMODE(heads->stream);
+  }
+  else if(strcmp(config->headerfile, "-")) {
+    FILE *newfile;
+
+    /*
+     * Since every transfer has its own file handle for dumping
+     * the headers, we need to open it in append mode, since transfers
+     * might finish in any order.
+     * The first transfer just clears the file.
+     *
+     * Consider placing the file handle inside the OperationConfig, so
+     * that it does not need to be opened/closed for every transfer.
+     */
+    if(config->create_dirs) {
+      CURLcode result = create_dir_hierarchy(config->headerfile, global);
+      /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
+      if(result)
+        return result;
+    }
+    if(!per->prev || per->prev->config != config) {
+      newfile = fopen(config->headerfile, "wb");
+      if(newfile)
+        fclose(newfile);
+    }
+    newfile = fopen(config->headerfile, "ab");
+
+    if(!newfile) {
+      errorf(global, "Failed to open %s", config->headerfile);
+      return CURLE_WRITE_ERROR;
+    }
+    else {
+      heads->filename = config->headerfile;
+      heads->s_isreg = TRUE;
+      heads->fopened = TRUE;
+      heads->stream = newfile;
+    }
+  }
+  else {
+    /* always use binary mode for protocol header output */
+    CURL_SET_BINMODE(heads->stream);
+  }
+  return CURLE_OK;
+}
+
+static CURLcode setup_outfile(struct GlobalConfig *global,
+                              struct OperationConfig *config,
+                              struct per_transfer *per,
+                              struct OutStruct *outs,
+                              bool *skipped)
+{
+  /*
+   * We have specified a filename to store the result in, or we have
+   * decided we want to use the remote filename.
+   */
+  struct State *state = &config->state;
+
+  if(!per->outfile) {
+    /* extract the filename from the URL */
+    CURLcode result = get_url_file_name(global, &per->outfile, per->url);
+    if(result) {
+      errorf(global, "Failed to extract a filename"
+             " from the URL to use for storage");
+      return result;
+    }
+  }
+  else if(state->urls) {
+    /* fill '#1' ... '#9' terms from URL pattern */
+    char *storefile = per->outfile;
+    CURLcode result = glob_match_url(&per->outfile, storefile, state->urls);
+    tool_safefree(storefile);
+    if(result) {
+      /* bad globbing */
+      warnf(global, "bad output glob");
+      return result;
+    }
+    if(!*per->outfile) {
+      warnf(global, "output glob produces empty string");
+      return CURLE_WRITE_ERROR;
+    }
+  }
+  DEBUGASSERT(per->outfile);
+
+  if(config->output_dir && *config->output_dir) {
+    char *d = aprintf("%s/%s", config->output_dir, per->outfile);
+    if(!d)
+      return CURLE_WRITE_ERROR;
+    free(per->outfile);
+    per->outfile = d;
+  }
+  /* Create the directory hierarchy, if not pre-existent to a multiple
+     file output call */
+
+  if(config->create_dirs) {
+    CURLcode result = create_dir_hierarchy(per->outfile, global);
+    /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
+    if(result)
+      return result;
+  }
+
+  if(config->skip_existing) {
+    struct_stat fileinfo;
+    if(!stat(per->outfile, &fileinfo)) {
+      /* file is present */
+      notef(global, "skips transfer, \"%s\" exists locally",
+            per->outfile);
+      per->skip = TRUE;
+      *skipped = TRUE;
+    }
+  }
+
+  if(config->resume_from_current) {
+    /* We are told to continue from where we are now. Get the size
+       of the file as it is now and open it for append instead */
+    struct_stat fileinfo;
+    /* VMS -- Danger, the filesize is only valid for stream files */
+    if(0 == stat(per->outfile, &fileinfo))
+      /* set offset to current file size: */
+      config->resume_from = fileinfo.st_size;
+    else
+      /* let offset be 0 */
+      config->resume_from = 0;
+  }
+
+  if(config->resume_from) {
+#ifdef __VMS
+    /* open file for output, forcing VMS output format into stream
+       mode which is needed for stat() call above to always work. */
+    FILE *file = fopen(outfile, "ab",
+                       "ctx=stm", "rfm=stmlf", "rat=cr", "mrs=0");
+#else
+    /* open file for output: */
+    FILE *file = fopen(per->outfile, "ab");
+#endif
+    if(!file) {
+      errorf(global, "cannot open '%s'", per->outfile);
+      return CURLE_WRITE_ERROR;
+    }
+    outs->fopened = TRUE;
+    outs->stream = file;
+    outs->init = config->resume_from;
+  }
+  else {
+    outs->stream = NULL; /* open when needed */
+  }
+  outs->filename = per->outfile;
+  outs->s_isreg = TRUE;
+  return CURLE_OK;
+}
+
+
 /* create the next (singular) transfer */
 static CURLcode single_transfer(struct GlobalConfig *global,
                                 struct OperationConfig *config,
@@ -930,73 +1166,15 @@ static CURLcode single_transfer(struct GlobalConfig *global,
 
       /* --etag-compare */
       if(config->etag_compare_file) {
-        char *etag_from_file = NULL;
-        char *header = NULL;
-        ParameterError pe;
-
-        /* open file for reading: */
-        FILE *file = fopen(config->etag_compare_file, FOPEN_READTEXT);
-        if(!file)
-          warnf(global, "Failed to open %s: %s", config->etag_compare_file,
-                strerror(errno));
-
-        if((PARAM_OK == file2string(&etag_from_file, file)) &&
-           etag_from_file) {
-          header = aprintf("If-None-Match: %s", etag_from_file);
-          tool_safefree(etag_from_file);
-        }
-        else
-          header = aprintf("If-None-Match: \"\"");
-
-        if(!header) {
-          if(file)
-            fclose(file);
-          errorf(global,
-                 "Failed to allocate memory for custom etag header");
-          result = CURLE_OUT_OF_MEMORY;
-          break;
-        }
-
-        /* add Etag from file to list of custom headers */
-        pe = add2list(&config->headers, header);
-        tool_safefree(header);
-
-        if(file)
-          fclose(file);
-        if(pe != PARAM_OK) {
-          result = CURLE_OUT_OF_MEMORY;
-          break;
-        }
+        result = etag_compare(global, config);
+        if(result)
+          return result;
       }
 
       if(config->etag_save_file) {
-        if(config->create_dirs) {
-          result = create_dir_hierarchy(config->etag_save_file, global);
-          if(result)
-            break;
-        }
-
-        /* open file for output: */
-        if(strcmp(config->etag_save_file, "-")) {
-          FILE *newfile = fopen(config->etag_save_file, "ab");
-          if(!newfile) {
-            warnf(global, "Failed creating file for saving etags: \"%s\". "
-                  "Skip this transfer", config->etag_save_file);
-            tool_safefree(state->outfiles);
-            glob_cleanup(&state->urls);
-            return CURLE_OK;
-          }
-          else {
-            etag_save->filename = config->etag_save_file;
-            etag_save->s_isreg = TRUE;
-            etag_save->fopened = TRUE;
-            etag_save->stream = newfile;
-          }
-        }
-        else {
-          /* always use binary mode for protocol header output */
-          CURL_SET_BINMODE(etag_save->stream);
-        }
+        result = etag_store(global, config, etag_save);
+        if(result)
+          return result;
       }
 
       curl = curl_easy_init();
@@ -1036,55 +1214,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
 
       /* Single header file for all URLs */
       if(config->headerfile) {
-        /* open file for output: */
-        if(!strcmp(config->headerfile, "%")) {
-          heads->stream = stderr;
-          /* use binary mode for protocol header output */
-          CURL_SET_BINMODE(heads->stream);
-        }
-        else if(strcmp(config->headerfile, "-")) {
-          FILE *newfile;
-
-          /*
-           * Since every transfer has its own file handle for dumping
-           * the headers, we need to open it in append mode, since transfers
-           * might finish in any order.
-           * The first transfer just clears the file.
-           *
-           * Consider placing the file handle inside the OperationConfig, so
-           * that it does not need to be opened/closed for every transfer.
-           */
-          if(config->create_dirs) {
-            result = create_dir_hierarchy(config->headerfile, global);
-            /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
-            if(result)
-              break;
-          }
-          if(!per->prev || per->prev->config != config) {
-            newfile = fopen(config->headerfile, "wb");
-            if(newfile)
-              fclose(newfile);
-          }
-          newfile = fopen(config->headerfile, "ab");
-
-          if(!newfile) {
-            errorf(global, "Failed to open %s", config->headerfile);
-            result = CURLE_WRITE_ERROR;
-            break;
-          }
-          else {
-            heads->filename = config->headerfile;
-            heads->s_isreg = TRUE;
-            heads->fopened = TRUE;
-            heads->stream = newfile;
-          }
-        }
-        else {
-          /* always use binary mode for protocol header output */
-          CURL_SET_BINMODE(heads->stream);
-        }
+        result = setup_headerfile(global, config, per, heads);
+        if(result)
+          return result;
       }
-
       hdrcbdata = &per->hdrcbdata;
 
       outs = &per->outs;
@@ -1123,111 +1256,9 @@ static CURLcode single_transfer(struct GlobalConfig *global,
 
       if(((urlnode->flags&GETOUT_USEREMOTE) ||
           (per->outfile && strcmp("-", per->outfile)))) {
-
-        /*
-         * We have specified a filename to store the result in, or we have
-         * decided we want to use the remote filename.
-         */
-
-        if(!per->outfile) {
-          /* extract the filename from the URL */
-          result = get_url_file_name(global, &per->outfile, per->url);
-          if(result) {
-            errorf(global, "Failed to extract a filename"
-                   " from the URL to use for storage");
-            break;
-          }
-        }
-        else if(state->urls) {
-          /* fill '#1' ... '#9' terms from URL pattern */
-          char *storefile = per->outfile;
-          result = glob_match_url(&per->outfile, storefile, state->urls);
-          tool_safefree(storefile);
-          if(result) {
-            /* bad globbing */
-            warnf(global, "bad output glob");
-            break;
-          }
-          if(!*per->outfile) {
-            warnf(global, "output glob produces empty string");
-            result = CURLE_WRITE_ERROR;
-            break;
-          }
-        }
-        DEBUGASSERT(per->outfile);
-
-        if(config->output_dir && *config->output_dir) {
-          char *d = aprintf("%s/%s", config->output_dir, per->outfile);
-          if(!d) {
-            result = CURLE_WRITE_ERROR;
-            break;
-          }
-          free(per->outfile);
-          per->outfile = d;
-        }
-        /* Create the directory hierarchy, if not pre-existent to a multiple
-           file output call */
-
-        if(config->create_dirs) {
-          result = create_dir_hierarchy(per->outfile, global);
-          /* create_dir_hierarchy shows error upon CURLE_WRITE_ERROR */
-          if(result)
-            break;
-        }
-
-        if(config->skip_existing) {
-          struct_stat fileinfo;
-          if(!stat(per->outfile, &fileinfo)) {
-            /* file is present */
-            notef(global, "skips transfer, \"%s\" exists locally",
-                  per->outfile);
-            per->skip = TRUE;
-            *skipped = TRUE;
-          }
-        }
-        if((urlnode->flags & GETOUT_USEREMOTE)
-           && config->content_disposition) {
-          /* Our header callback MIGHT set the filename */
-          DEBUGASSERT(!outs->filename);
-        }
-
-        if(config->resume_from_current) {
-          /* We are told to continue from where we are now. Get the size
-             of the file as it is now and open it for append instead */
-          struct_stat fileinfo;
-          /* VMS -- Danger, the filesize is only valid for stream files */
-          if(0 == stat(per->outfile, &fileinfo))
-            /* set offset to current file size: */
-            config->resume_from = fileinfo.st_size;
-          else
-            /* let offset be 0 */
-            config->resume_from = 0;
-        }
-
-        if(config->resume_from) {
-#ifdef __VMS
-          /* open file for output, forcing VMS output format into stream
-             mode which is needed for stat() call above to always work. */
-          FILE *file = fopen(outfile, "ab",
-                             "ctx=stm", "rfm=stmlf", "rat=cr", "mrs=0");
-#else
-          /* open file for output: */
-          FILE *file = fopen(per->outfile, "ab");
-#endif
-          if(!file) {
-            errorf(global, "cannot open '%s'", per->outfile);
-            result = CURLE_WRITE_ERROR;
-            break;
-          }
-          outs->fopened = TRUE;
-          outs->stream = file;
-          outs->init = config->resume_from;
-        }
-        else {
-          outs->stream = NULL; /* open when needed */
-        }
-        outs->filename = per->outfile;
-        outs->s_isreg = TRUE;
+        result = setup_outfile(global, config, per, outs, skipped);
+        if(result)
+          return result;
       }
 
       if(per->uploadfile && !stdin_upload(per->uploadfile)) {
