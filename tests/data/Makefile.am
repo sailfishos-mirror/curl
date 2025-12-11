@@ -112,8 +112,7 @@ test754 test755 test756 test757 test758 test759 test760 test761 test762 \
 test763 test764 test765 test766 test767 test768 test769 test770 test771 \
 test772 test773 test774 test775 test776 test777 test778 test779 test780 \
 test781 test782 test783 test784 test785 test786 test787 test788 test789 \
-test790 test791 test792 test793 test794 test795 test796 test797 \
-\
+test790 test791 test792 test793 test794 test795 test796 test797 test798 \
 test799 test800 test801 test802 test803 test804 test805 test806 test807 \
 test808 test809 test810 test811 test812 test813 test814 test815 test816 \
 test817 test818 test819 test820 test821 test822 test823 test824 test825 \
