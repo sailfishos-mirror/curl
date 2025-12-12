@@ -2947,6 +2947,7 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
   /* make sure the header buffer is reset - if there are leftovers from a
      previous transfer */
   curlx_dyn_reset(&data->state.headerb);
+  data->state.maybe_folded = FALSE;
 
   if(!data->conn->bits.reuse) {
     result = http_check_new_conn(data);
@@ -4288,9 +4289,9 @@ static void unfold_header(struct Curl_easy *data)
 {
   size_t len = curlx_dyn_len(&data->state.headerb);
   char *hd = curlx_dyn_ptr(&data->state.headerb);
-  if(len && (hd[len -1 ] == '\n'))
+  if(len && (hd[len -1] == '\n'))
     len--;
-  if(len && (hd[len -1 ] == '\r'))
+  if(len && (hd[len -1] == '\r'))
     len--;
   curlx_dyn_setlen(&data->state.headerb, len);
 }
@@ -4384,11 +4385,12 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
      * We now have a FULL header line in 'headerb'.
      *****/
 
+    hlen = curlx_dyn_len(&data->state.headerb);
+    hd = curlx_dyn_ptr(&data->state.headerb);
+
     if(!k->headerline) {
-      /* the first read header */
-      statusline st = checkprotoprefix(data, conn,
-                                       curlx_dyn_ptr(&data->state.headerb),
-                                       curlx_dyn_len(&data->state.headerb));
+      /* the first read "header", the status line */
+      statusline st = checkprotoprefix(data, conn, hd, hlen);
       if(st == STATUS_BAD) {
         streamclose(conn, "bad HTTP: No end-of-message indicator");
         /* this is not the beginning of a protocol first header line.
@@ -4406,22 +4408,21 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
         goto out;
       }
     }
-    hlen = curlx_dyn_len(&data->state.headerb);
-    hd = curlx_dyn_ptr(&data->state.headerb);
+    else {
+      if(hlen && !ISNEWLINE(hd[0])) {
+        /* this is NOT the header separator */
 
-    if(hlen && !ISNEWLINE(hd[0])) {
-      /* this is NOT the header separator */
-
-      /* if we have bytes for the next header, check for folding */
-      if(blen && ISBLANK(buf[0])) {
-        /* remove the trailing CRLF and append the next header */
-        unfold_header(data);
-        continue;
-      }
-      else if(!blen) {
-        /* this might be a folded header so deal with it in next invoke */
-        data->state.maybe_folded = TRUE;
-        break;
+        /* if we have bytes for the next header, check for folding */
+        if(blen && ISBLANK(buf[0])) {
+          /* remove the trailing CRLF and append the next header */
+          unfold_header(data);
+          continue;
+        }
+        else if(!blen) {
+          /* this might be a folded header so deal with it in next invoke */
+          data->state.maybe_folded = TRUE;
+          break;
+        }
       }
     }
 
