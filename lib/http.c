@@ -4283,6 +4283,18 @@ static CURLcode http_rw_hd(struct Curl_easy *data,
   return CURLE_OK;
 }
 
+/* cut off the newline characters */
+static void unfold_header(struct Curl_easy *data)
+{
+  size_t len = curlx_dyn_len(&data->state.headerb);
+  char *hd = curlx_dyn_ptr(&data->state.headerb);
+  if(len && (hd[len -1 ] == '\n'))
+    len--;
+  if(len && (hd[len -1 ] == '\r'))
+    len--;
+  curlx_dyn_setlen(&data->state.headerb, len);
+}
+
 /*
  * Read any HTTP header lines from the server and pass them to the client app.
  */
@@ -4295,6 +4307,28 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
   struct SingleRequest *k = &data->req;
   char *end_ptr;
   bool leftover_body = FALSE;
+
+  /* we have bytes for the next header, make sure it is not a folded header
+     before passing it on */
+  if(data->state.maybe_folded && blen) {
+    if(ISBLANK(buf[0])) {
+      /* folded, remove the trailing newlines and append the next header */
+      infof(data, "unfold two");
+      unfold_header(data);
+    }
+    else {
+      /* the header data we hold is a complete header, pass it on */
+      size_t ignore_this;
+      infof(data, "unfold three");
+      result = http_rw_hd(data, curlx_dyn_ptr(&data->state.headerb),
+                          curlx_dyn_len(&data->state.headerb),
+                          NULL, 0, &ignore_this);
+      curlx_dyn_reset(&data->state.headerb);
+      if(result)
+        return result;
+    }
+    data->state.maybe_folded = FALSE;
+  }
 
   /* header line within buffer loop */
   *pconsumed = 0;
@@ -4370,6 +4404,26 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
         k->header = FALSE;
         leftover_body = TRUE;
         goto out;
+      }
+    }
+
+    /* we have bytes for the next header, make sure it is not a folded header
+       before passing it on */
+    if(blen && ISBLANK(buf[0])) {
+      /* a remove the trailing newlines and append the next header */
+      infof(data, "unfold one");
+      unfold_header(data);
+      continue;
+    }
+    else if(!blen) {
+      /* if this is not the CRLF terinating the header sequence, this *might*
+         be a folded header so deal with it in next invoke */
+      size_t len = curlx_dyn_len(&data->state.headerb);
+      char *hd = curlx_dyn_ptr(&data->state.headerb);
+      if(len && !ISNEWLINE(hd[0])) {
+        data->state.maybe_folded = TRUE;
+        infof(data, "unfold maybe");
+        break;
       }
     }
 
