@@ -4411,20 +4411,22 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
     hlen = curlx_dyn_len(&data->state.headerb);
     hd = curlx_dyn_ptr(&data->state.headerb);
 
-    /* we have bytes for the next header, make sure it is not a folded header
-       before passing it on - unless this is the header separator itself */
-    if(blen && ISBLANK(buf[0]) && hlen && !ISNEWLINE(hd[0])) {
-      /* a remove the trailing newlines and append the next header */
-      infof(data, "unfold one: %zu", blen);
-      unfold_header(data);
-      continue;
-    }
-    else if(!blen && hlen && !ISNEWLINE(hd[0])) {
-      /* if this is not the CRLF terminating the header sequence, this *might*
-         be a folded header so deal with it in next invoke */
-      data->state.maybe_folded = TRUE;
-      infof(data, "unfold maybe");
-      break;
+    if(hlen && !ISNEWLINE(hd[0])) {
+      /* this is NOT the header separator */
+
+      /* if we have bytes for the next header, check for folding */
+      if(blen && ISBLANK(buf[0])) {
+        /* a remove the trailing newlines and append the next header */
+        infof(data, "unfold one: %zu", blen);
+        unfold_header(data);
+        continue;
+      }
+      else if(!blen) {
+        /* this might be a folded header so deal with it in next invoke */
+        data->state.maybe_folded = TRUE;
+        infof(data, "unfold maybe");
+        break;
+      }
     }
 
     result = http_rw_hd(data, hd, hlen, buf, blen, &consumed);
