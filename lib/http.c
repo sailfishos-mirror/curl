@@ -111,10 +111,8 @@ static CURLcode http_statusline(struct Curl_easy *data,
                                 struct connectdata *conn);
 static CURLcode http_target(struct Curl_easy *data, struct dynbuf *req);
 static CURLcode http_useragent(struct Curl_easy *data);
-static CURLcode http_rw_hd(struct Curl_easy *data,
-                           const char *hd, size_t hdlen,
-                           const char *buf_remain, size_t blen,
-                           size_t *pconsumed);
+static CURLcode http_write_header(struct Curl_easy *data,
+                                  const char *hd, size_t hdlen);
 
 /*
  * HTTP handler interface.
@@ -1580,12 +1578,8 @@ CURLcode Curl_http_done(struct Curl_easy *data,
   data->state.authproxy.multipass = FALSE;
 
   if(curlx_dyn_len(&data->state.headerb)) {
-    size_t ignore_this;
-    CURLcode result = http_rw_hd(data, curlx_dyn_ptr(&data->state.headerb),
-                                 curlx_dyn_len(&data->state.headerb),
-                                 NULL, 0, &ignore_this);
-    if(!status)
-      status = result;
+    (void)http_write_header(data, curlx_dyn_ptr(&data->state.headerb),
+                            curlx_dyn_len(&data->state.headerb));
   }
   curlx_dyn_reset(&data->state.headerb);
 
