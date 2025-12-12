@@ -14,7 +14,10 @@ cookiejar
 <data crlf="headers" nocheck="yes">
 HTTP/1.1 200 OK
 Content-Length: 4
-Set-Cookie: flavor=tasty; domain=localhost; path=/p4/; httponly;
+Set-Cookie: flavor=tasty;
+ domain=localhost;
+ path=/p4/;
+ httponly;
  secure
 
 boo
