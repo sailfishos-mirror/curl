@@ -4414,7 +4414,7 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
 
       /* if we have bytes for the next header, check for folding */
       if(blen && ISBLANK(buf[0])) {
-        /* a remove the trailing newlines and append the next header */
+        /* remove the trailing CRLF and append the next header */
         unfold_header(data);
         continue;
       }
