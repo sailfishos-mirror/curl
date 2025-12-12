@@ -4313,13 +4313,11 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
   if(data->state.maybe_folded && blen) {
     if(ISBLANK(buf[0])) {
       /* folded, remove the trailing newlines and append the next header */
-      infof(data, "unfold two");
       unfold_header(data);
     }
     else {
       /* the header data we hold is a complete header, pass it on */
       size_t ignore_this;
-      infof(data, "unfold three");
       result = http_rw_hd(data, curlx_dyn_ptr(&data->state.headerb),
                           curlx_dyn_len(&data->state.headerb),
                           NULL, 0, &ignore_this);
@@ -4417,14 +4415,12 @@ static CURLcode http_parse_headers(struct Curl_easy *data,
       /* if we have bytes for the next header, check for folding */
       if(blen && ISBLANK(buf[0])) {
         /* a remove the trailing newlines and append the next header */
-        infof(data, "unfold one: %zu", blen);
         unfold_header(data);
         continue;
       }
       else if(!blen) {
         /* this might be a folded header so deal with it in next invoke */
         data->state.maybe_folded = TRUE;
-        infof(data, "unfold maybe");
         break;
       }
     }
