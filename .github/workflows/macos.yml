@@ -236,7 +236,7 @@ jobs:
           - name: 'OpenSSL libssh'
             compiler: llvm@18
             install: libssh libnghttp3
-            generate: -DENABLE_DEBUG=ON -DCURL_USE_LIBSSH2=OFF -DCURL_USE_LIBSSH=ON -DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl -DUSE_OPENSSL_QUIC=ON -DCURL_BROTLI=OFF -DCURL_ZSTD=OFF
+            generate: -DENABLE_DEBUG=ON -DCURL_USE_LIBSSH2=OFF -DCURL_USE_LIBSSH=ON -DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl -DCURL_BROTLI=OFF -DCURL_ZSTD=OFF
           - name: '!ssl c-ares'
             compiler: clang
             configure: --enable-debug --enable-ares --without-ssl

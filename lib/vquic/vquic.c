@@ -36,7 +36,6 @@
 #include "../cfilters.h"
 #include "../curl_trc.h"
 #include "curl_ngtcp2.h"
-#include "curl_osslq.h"
 #include "curl_quiche.h"
 #include "../multiif.h"
 #include "../progress.h"

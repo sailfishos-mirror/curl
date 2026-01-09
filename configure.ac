@@ -170,7 +170,7 @@ curl_unix_sockets_msg="no       (--enable-unix-sockets)"
          ssl_backends=
           curl_h1_msg="enabled  (internal)"
           curl_h2_msg="no       (--with-nghttp2)"
-          curl_h3_msg="no       (--with-ngtcp2 --with-nghttp3, --with-quiche, --with-openssl-quic)"
+          curl_h3_msg="no       (--with-ngtcp2 --with-nghttp3, --with-quiche)"
 
 enable_altsvc="yes"
 hsts="yes"
@@ -3601,45 +3601,6 @@ if test "$USE_NGTCP2" = "1" && test "$WOLFSSL_ENABLED" = "1"; then
 fi
 
 dnl **********************************************************************
-dnl Check for OpenSSL QUIC
-dnl **********************************************************************
-
-OPT_OPENSSL_QUIC="no"
-
-if test "$disable_http" = "yes" || test "$OPENSSL_ENABLED" != "1"; then
-  # without HTTP or without openssl, no use
-  OPT_OPENSSL_QUIC="no"
-fi
-
-AC_ARG_WITH(openssl-quic,
-AS_HELP_STRING([--with-openssl-quic],[Enable OpenSSL QUIC usage])
-AS_HELP_STRING([--without-openssl-quic],[Disable OpenSSL QUIC usage]),
-  [OPT_OPENSSL_QUIC=$withval])
-case "$OPT_OPENSSL_QUIC" in
-  no)
-    dnl --without-openssl-quic option used
-    want_openssl_quic="no"
-    ;;
-  yes)
-    dnl --with-openssl-quic option used
-    want_openssl_quic="yes"
-    ;;
-esac
-
-curl_openssl_quic_msg="no      (--with-openssl-quic)"
-if test "$want_openssl_quic" = "yes"; then
-
-  if test "$USE_NGTCP2" = "1"; then
-    AC_MSG_ERROR([--with-openssl-quic and --with-ngtcp2 are mutually exclusive])
-  fi
-  if test "$have_openssl_quic" != "1"; then
-    AC_MSG_ERROR([--with-openssl-quic requires quic support and OpenSSL >= 3.3.0])
-  fi
-  AC_DEFINE(USE_OPENSSL_QUIC, 1, [if openssl QUIC is in use])
-  USE_OPENSSL_QUIC=1
-fi
-
-dnl **********************************************************************
 dnl Check for nghttp3 (HTTP/3 with ngtcp2)
 dnl **********************************************************************
 
@@ -3675,9 +3636,9 @@ esac
 curl_http3_msg="no      (--with-nghttp3)"
 if test "$want_nghttp3" != "no"; then
 
-  if test "$USE_NGTCP2" != "1" && test "$USE_OPENSSL_QUIC" != "1"; then
+  if test "x$USE_NGTCP2" != "x1"; then
     # without ngtcp2 or openssl quic, nghttp3 is of no use for us
-    AC_MSG_ERROR([nghttp3 enabled without a QUIC library; enable ngtcp2 or OpenSSL-QUIC])
+    AC_MSG_ERROR([nghttp3 enabled without a QUIC library; enable ngtcp2])
   fi
 
   dnl backup the pre-nghttp3 variables
