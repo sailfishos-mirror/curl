@@ -3606,8 +3606,8 @@ dnl **********************************************************************
 
 OPT_NGHTTP3="yes"
 
-if test "$USE_NGTCP2" != "1" && test "$USE_OPENSSL_QUIC" != "1"; then
-  # without ngtcp2 or openssl quic, nghttp3 is of no use for us
+if test "$USE_NGTCP2" != "1"; then
+  # without ngtcp2, nghttp3 is of no use for us
   OPT_NGHTTP3="no"
   want_nghttp3="no"
 fi
@@ -3637,7 +3637,7 @@ curl_http3_msg="no      (--with-nghttp3)"
 if test "$want_nghttp3" != "no"; then
 
   if test "x$USE_NGTCP2" != "x1"; then
-    # without ngtcp2 or openssl quic, nghttp3 is of no use for us
+    # without ngtcp2, nghttp3 is of no use for us
     AC_MSG_ERROR([nghttp3 enabled without a QUIC library; enable ngtcp2])
   fi
 
@@ -3705,17 +3705,6 @@ if test "$USE_NGTCP2" = "1" && test "$USE_NGHTTP3" = "1"; then
   USE_NGTCP2_H3=1
   AC_MSG_NOTICE([HTTP3 support is experimental])
   curl_h3_msg="enabled (ngtcp2 + nghttp3)"
-fi
-
-dnl **********************************************************************
-dnl Check for OpenSSL and nghttp3 (HTTP/3 with nghttp3 using OpenSSL QUIC)
-dnl **********************************************************************
-
-if test "$USE_OPENSSL_QUIC" = "1" && test "$USE_NGHTTP3" = "1"; then
-  experimental="$experimental HTTP3"
-  USE_OPENSSL_H3=1
-  AC_MSG_NOTICE([HTTP3 support is experimental])
-  curl_h3_msg="enabled (openssl + nghttp3)"
 fi
 
 dnl **********************************************************************

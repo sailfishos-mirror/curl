@@ -65,8 +65,6 @@ void Curl_quic_ver(char *p, size_t len)
 {
 #if defined(USE_NGTCP2) && defined(USE_NGHTTP3)
   Curl_ngtcp2_ver(p, len);
-#elif defined(USE_OPENSSL_QUIC) && defined(USE_NGHTTP3)
-  Curl_osslq_ver(p, len);
 #elif defined(USE_QUICHE)
   Curl_quiche_ver(p, len);
 #endif
@@ -702,8 +700,6 @@ CURLcode Curl_cf_quic_create(struct Curl_cfilter **pcf,
   DEBUGASSERT(transport == TRNSPRT_QUIC);
 #if defined(USE_NGTCP2) && defined(USE_NGHTTP3)
   return Curl_cf_ngtcp2_create(pcf, data, conn, ai);
-#elif defined(USE_OPENSSL_QUIC) && defined(USE_NGHTTP3)
-  return Curl_cf_osslq_create(pcf, data, conn, ai);
 #elif defined(USE_QUICHE)
   return Curl_cf_quiche_create(pcf, data, conn, ai);
 #else
