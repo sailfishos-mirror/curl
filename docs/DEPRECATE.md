@@ -63,4 +63,3 @@ CMake 3.18 was released on 2020-07-15.
  - Support for Visual Studio 2008 (removed in 8.18.0)
  - OpenSSL 1.1.1 and older (removed in 8.18.0)
  - OpenSSL-QUIC (removed in 8.19.0)
-
