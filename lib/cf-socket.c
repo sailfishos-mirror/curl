@@ -312,10 +312,6 @@ static CURLcode socket_open(struct Curl_easy *data,
 {
   char errbuf[STRERROR_LEN];
 
-#ifdef SOCK_CLOEXEC
-  addr->socktype |= SOCK_CLOEXEC;
-#endif
-
   DEBUGASSERT(data);
   DEBUGASSERT(data->conn);
   if(data->set.fopensocket) {
@@ -335,6 +331,12 @@ static CURLcode socket_open(struct Curl_easy *data,
     Curl_set_in_callback(data, FALSE);
   }
   else {
+    int socktype = addr->socktype;
+
+#ifdef SOCK_CLOEXEC
+    socktype |= SOCK_CLOEXEC;
+#endif
+
     /* opensocket callback not set, so simply create the socket now */
 #ifdef DEBUGBUILD
     if((addr->family == AF_INET6) && getenv("CURL_DBG_SOCK_FAIL_IPV6")) {
@@ -342,7 +344,7 @@ static CURLcode socket_open(struct Curl_easy *data,
       return CURLE_COULDNT_CONNECT;
     }
 #endif
-    *sockfd = CURL_SOCKET(addr->family, addr->socktype, addr->protocol);
+    *sockfd = CURL_SOCKET(addr->family, socktype, addr->protocol);
     if((*sockfd == CURL_SOCKET_BAD) && (SOCKERRNO == SOCKENOMEM))
       return CURLE_OUT_OF_MEMORY;
   }
