@@ -62,7 +62,7 @@
 #include <ares.h>
 
 #if ARES_VERSION < 0x011000
-#error "too old c-ares version, use 1.16.0 or later"
+#error "requires c-ares 1.16.0 or newer"
 #endif
 
 #ifdef USE_HTTPSRR
