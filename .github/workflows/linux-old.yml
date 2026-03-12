@@ -118,7 +118,7 @@ jobs:
       # that enabled again
       # when this job can get c-ares 1.16.0 or later, we can enable that
       # again
-      - name: 'CM configure (out-of-tree, c-ares, zstd, gssapi)'
+      - name: 'CM configure (out-of-tree, zstd, gssapi)'
         run: |
           mkdir bld-oldie
           cd bld-oldie
