@@ -416,7 +416,7 @@ typedef enum {
 /* - CURLMNWC_CLEAR_DNS tells libcurl to prevent further reuse of existing
    connections. Connections that are idle will be closed. Ongoing transfers
    will continue with the connection they have. */
-#define CURLMNWC_CLEAR_DNS (1L << 0)
+#define CURLMNWC_CLEAR_DNS (1L << 1)
 
 /*
  * Name:    curl_multi_setopt()
