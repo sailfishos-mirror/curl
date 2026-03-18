@@ -408,15 +408,19 @@ typedef enum {
 
 /* Definition of bits for the CURLMOPT_NETWORK_CHANGED argument: */
 
+/* - CURLMNWC_CLEAR_ALL tells libcurl to clear "everything" that could be
+   associated with this network, including both connections and DNS data. */
+#define CURLMNWC_CLEAR_ALL (1L << 0)
+
 /* - CURLMNWC_CLEAR_CONNS tells libcurl to prevent further reuse of existing
    connections. Connections that are idle will be closed. Ongoing transfers
    will continue with the connection they have. */
-#define CURLMNWC_CLEAR_CONNS (1L << 0)
+#define CURLMNWC_CLEAR_CONNS (1L << 1)
 
 /* - CURLMNWC_CLEAR_DNS tells libcurl to prevent further reuse of existing
    connections. Connections that are idle will be closed. Ongoing transfers
    will continue with the connection they have. */
-#define CURLMNWC_CLEAR_DNS (1L << 1)
+#define CURLMNWC_CLEAR_DNS (1L << 2)
 
 /*
  * Name:    curl_multi_setopt()
