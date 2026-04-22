@@ -33,6 +33,7 @@ typedef enum {
 
 struct URLPattern {
   globtype type;
+  char *name;    /* if not NULL */
   int globindex; /* the number of this particular glob or -1 if not used
                     within {} or [] */
   union {

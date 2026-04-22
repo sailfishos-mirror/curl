@@ -69,3 +69,11 @@ override curl's internal binary output in terminal prevention:
 
 Note that the binary output may be caused by the response being compressed, in
 which case you may want to use the --compressed option.
+
+Starting in curl 8.21.0, the separate globbing parts can be named and
+referenced by their names. The case sensitive alphanumeric name is set
+enclosed within angle brackets after the opening character. Examples:
+
+    curl "https://fun.example/{<num>one,two}.jpg" -o "save-#<num>"
+
+    ftp://ftp.example.com/file[<range>1-100].txt -o "#<range>.text"

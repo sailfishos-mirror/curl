@@ -56,6 +56,7 @@ static CURLcode glob_fixed(struct URLGlob *glob, char *fixed, size_t len)
 
   pat->c.set.palloc = 1;
   pat->c.set.size = 1;
+  pat->name = NULL; /* unnamed */
   return CURLE_OK;
 }
 
@@ -89,7 +90,7 @@ static int multiply(curl_off_t *amount, curl_off_t with)
 
 static CURLcode glob_set(struct URLGlob *glob, const char **patternp,
                          size_t *posp, curl_off_t *amount,
-                         int globindex)
+                         int globindex, const struct Curl_str *name)
 {
   /* processes a set expression with the point behind the opening '{'
      ','-separated elements are collected until the next closing '}'
@@ -103,6 +104,7 @@ static CURLcode glob_set(struct URLGlob *glob, const char **patternp,
   size_t size = 0;
   char **elem = NULL;
   size_t palloc = 0; /* start with this */
+  DEBUGASSERT(name);
 
   while(!done) {
     switch(*pattern) {
@@ -198,6 +200,15 @@ static CURLcode glob_set(struct URLGlob *glob, const char **patternp,
   pat->c.set.size = size;
   pat->c.set.idx = 0;
   pat->c.set.palloc = palloc;
+  if(curlx_strlen(name)) {
+    pat->name = curlx_memdup0(curlx_str(name), curlx_strlen(name));
+    if(!pat->name) {
+      result = CURLE_OUT_OF_MEMORY;
+      goto error;
+    }
+  }
+  else
+    pat->name = NULL; /* no name */
 
   return CURLE_OK;
 error:
@@ -212,7 +223,7 @@ error:
 
 static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
                            size_t *posp, curl_off_t *amount,
-                           int globindex)
+                           int globindex, const struct Curl_str *name)
 {
   /* processes a range expression with the point behind the opening '['
      - char range: e.g. "a-z]", "B-Q]"
@@ -224,8 +235,16 @@ static CURLcode glob_range(struct URLGlob *glob, const char **patternp,
   const char *pattern = *patternp;
   const char *c;
 
+  DEBUGASSERT(name);
   pat = &glob->pattern[glob->pnum];
   pat->globindex = globindex;
+  if(curlx_strlen(name)) {
+    pat->name = curlx_memdup0(curlx_str(name), curlx_strlen(name));
+    if(!pat->name)
+      return CURLE_OUT_OF_MEMORY;
+  }
+  else
+    pat->name = NULL; /* no name */
 
   if(ISALPHA(*pattern)) {
     /* character range detected */
@@ -405,6 +424,8 @@ static CURLcode add_glob(struct URLGlob *glob, size_t pos)
   return CURLE_OK;
 }
 
+#define MAX_GLOBNAME_LEN 64
+
 static CURLcode glob_parse(struct URLGlob *glob, const char *pattern,
                            size_t pos, curl_off_t *amount)
 {
@@ -462,21 +483,24 @@ static CURLcode glob_parse(struct URLGlob *glob, const char *pattern,
       curlx_dyn_reset(&glob->buf);
     }
     else {
+      struct Curl_str name;
       if(!*pattern) /* done */
         break;
-      else if(*pattern == '{') {
-        /* process set pattern */
+      else if((*pattern == '{') || (*pattern == '[')) {
+        bool set = (*pattern == '{');
         pattern++;
         pos++;
-        result = glob_set(glob, &pattern, &pos, amount, globindex++);
-        if(!result)
-          result = add_glob(glob, pos);
-      }
-      else if(*pattern == '[') {
-        /* process range pattern */
-        pattern++;
-        pos++;
-        result = glob_range(glob, &pattern, &pos, amount, globindex++);
+        /* fetch the name, if provided */
+        if(curlx_str_single(&pattern, '<') ||
+           curlx_str_until(&pattern, &name, MAX_GLOBNAME_LEN, '>') ||
+           curlx_str_single(&pattern, '>'))
+          curlx_str_init(&name);
+        if(set)
+          result = glob_set(glob, &pattern, &pos, amount, globindex++, &name);
+        else
+          result = glob_range(glob, &pattern, &pos, amount, globindex++,
+                              &name);
+
         if(!result)
           result = add_glob(glob, pos);
       }
@@ -545,6 +569,7 @@ void glob_cleanup(struct URLGlob *glob)
           curlx_safefree(glob->pattern[i].c.set.elem[elem]);
         curlx_safefree(glob->pattern[i].c.set.elem);
       }
+      curlx_safefree(glob->pattern[i].name);
     }
     curlx_safefree(glob->pattern);
     glob->palloc = 0;
@@ -648,11 +673,11 @@ CURLcode glob_match_url(char **output, const char *filename,
 
   while(*filename) {
     CURLcode result = CURLE_OK;
+    struct URLPattern *pat = NULL;
     if(*filename == '#' && ISDIGIT(filename[1])) {
-      const char *ptr = filename;
+      /* a numbered glob reference */
+      const char *ptr = filename++;
       curl_off_t num;
-      struct URLPattern *pat = NULL;
-      filename++;
       if(!curlx_str_number(&filename, &num, glob->pnum) && num) {
         size_t i;
         num--; /* make it zero based */
@@ -664,31 +689,49 @@ CURLcode glob_match_url(char **output, const char *filename,
           }
         }
       }
-
-      if(pat) {
-        switch(pat->type) {
-        case GLOB_SET:
-          if(pat->c.set.elem)
-            result = curlx_dyn_add(&dyn, pat->c.set.elem[pat->c.set.idx]);
-          break;
-        case GLOB_ASCII: {
-          char letter = (char)pat->c.ascii.letter;
-          result = curlx_dyn_addn(&dyn, &letter, 1);
-          break;
-        }
-        case GLOB_NUM:
-          result = curlx_dyn_addf(&dyn, "%0*" CURL_FORMAT_CURL_OFF_T,
-                                  pat->c.num.npad, pat->c.num.idx);
-          break;
-        default:
-          DEBUGASSERT(0);
-          curlx_dyn_free(&dyn);
-          return CURLE_FAILED_INIT;
+      if(!pat)
+        filename = ptr;
+    }
+    else if(*filename == '#' && (filename[1] == '<')) {
+      /* a named glob reference */
+      struct Curl_str name;
+      const char *ptr = filename;
+      filename += 2; /* pass both leading bytes */
+      if(!curlx_str_until(&filename, &name, MAX_GLOBNAME_LEN, '>') &&
+         !curlx_str_single(&filename, '>')) {
+        size_t i;
+        /* find the correct glob entry */
+        for(i = 0; i < glob->pnum; i++) {
+          if(glob->pattern[i].name &&
+             curlx_str_cmp(&name, glob->pattern[i].name)) {
+            pat = &glob->pattern[i];
+            break;
+          }
         }
       }
-      else
-        /* #[num] out of range, use the #[num] in the output */
-        result = curlx_dyn_addn(&dyn, ptr, filename - ptr);
+      if(!pat)
+        filename = ptr;
+    }
+    if(pat) {
+      switch(pat->type) {
+      case GLOB_SET:
+        if(pat->c.set.elem)
+          result = curlx_dyn_add(&dyn, pat->c.set.elem[pat->c.set.idx]);
+        break;
+      case GLOB_ASCII: {
+        char letter = (char)pat->c.ascii.letter;
+        result = curlx_dyn_addn(&dyn, &letter, 1);
+        break;
+      }
+      case GLOB_NUM:
+        result = curlx_dyn_addf(&dyn, "%0*" CURL_FORMAT_CURL_OFF_T,
+                                pat->c.num.npad, pat->c.num.idx);
+        break;
+      default:
+        DEBUGASSERT(0);
+        curlx_dyn_free(&dyn);
+        return CURLE_FAILED_INIT;
+      }
     }
     else
       result = curlx_dyn_addn(&dyn, filename++, 1);
