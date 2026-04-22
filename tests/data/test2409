@@ -42,7 +42,7 @@ http
 multiple requests using named [] globs in URL
 </name>
 <command option="no-output">
-"%HOSTIP:%HTTPPORT/hello[<test>7-9]" -o "%LOGDIR/dump-#<test>"
+"%HOSTIP:%HTTPPORT/hello[%LTtest%GT7-9]" -o "%LOGDIR/dump-#%LTtest%GT"
 </command>
 </client>
 

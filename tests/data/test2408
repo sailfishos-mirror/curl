@@ -42,7 +42,7 @@ http
 multiple requests using named {} globs in URL
 </name>
 <command option="no-output">
-"%HOSTIP:%HTTPPORT/{<test>%TESTNUMBER,%TESTNUMBER0002,%TESTNUMBER0003}" -o "%LOGDIR/dump-#<test>"
+"%HOSTIP:%HTTPPORT/{%LTtest%GT%TESTNUMBER,%TESTNUMBER0002,%TESTNUMBER0003}" -o "%LOGDIR/dump-#%LTtest%GT"
 </command>
 </client>
 
