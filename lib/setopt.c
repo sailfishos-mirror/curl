@@ -240,17 +240,9 @@ static CURLcode httpauth(struct Curl_easy *data, bool proxy,
   if(auth != CURLAUTH_NONE) {
     int bitcheck = 0;
     bool authbits = FALSE;
-    /* the DIGEST_IE bit is only used to set a special marker, for all the
-       rest we need to handle it as normal DIGEST */
-    bool iestyle = !!(auth & CURLAUTH_DIGEST_IE);
-    if(proxy)
-      data->state.authproxy.iestyle = iestyle;
-    else
-      data->state.authhost.iestyle = iestyle;
-
     if(auth & CURLAUTH_DIGEST_IE) {
       auth |= CURLAUTH_DIGEST; /* set standard digest bit */
-      auth &= ~CURLAUTH_DIGEST_IE; /* unset ie digest bit */
+      auth &= ~CURLAUTH_DIGEST_IE; /* drop the legacy bit */
     }
 
     /* switch off bits we cannot support */
