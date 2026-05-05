@@ -25,6 +25,8 @@
  ***************************************************************************/
 #include "curl_setup.h"
 
+struct hsts;
+
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_HSTS)
 #include "llist.h"
 
@@ -54,8 +56,6 @@ struct hsts *Curl_hsts_init(void);
 void Curl_hsts_cleanup(struct hsts **hp);
 CURLcode Curl_hsts_parse(struct hsts *h, const char *hostname,
                          const char *header);
-struct stsentry *Curl_hsts(struct hsts *h, const char *hostname,
-                           size_t hlen, bool subdomain);
 CURLcode Curl_hsts_save(struct Curl_easy *data, struct hsts *h,
                         const char *file);
 CURLcode Curl_hsts_loadfile(struct Curl_easy *data,
