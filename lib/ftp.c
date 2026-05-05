@@ -2281,10 +2281,10 @@ static CURLcode ftp_statemach(struct Curl_easy *data,
  * This function shall be called when the second FTP (data) connection is
  * connected.
  *
- * 'complete' can return 0 for incomplete, 1 for done and -1 for go back
+ * 'more' can return DOMORE_INCOMPLETE, DOMORE_DONE or DOMORE_GOBACK
  * (which is for when PASV is being sent to retry a failed EPSV).
  */
-static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
+static CURLcode ftp_do_more(struct Curl_easy *data, domore *more)
 {
   struct connectdata *conn = data->conn;
   struct ftp_conn *ftpc = Curl_conn_meta_get(data->conn, CURL_META_FTP_CONN);
@@ -2299,7 +2299,7 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
   if(!ftpc || !ftp)
     return CURLE_FAILED_INIT;
 
-  *completep = 0; /* default to stay in the state */
+  *more = DOMORE_INCOMPLETE; /* default to stay in the state */
 
   /* if the second connection has been set up, try to connect it fully
    * to the remote host. This may not complete at this time, for several
@@ -2317,7 +2317,7 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
     if(result || (!connected && !is_eptr &&
                   !Curl_conn_is_ip_connected(data, SECONDARYSOCKET))) {
       if(result && !is_eptr && (ftpc->count1 == 0)) {
-        *completep = -1; /* go back to DOING please */
+        *more = DOMORE_GOBACK; /* go back to DOING please */
         /* this is a EPSV connect failing, try PASV instead */
         return ftp_epsv_disable(data, ftpc, conn);
       }
@@ -2330,7 +2330,8 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
        They are only done to kickstart the do_more state */
     result = ftp_statemach(data, ftpc, &complete);
 
-    *completep = (int)complete;
+    if(complete)
+      *more = DOMORE_DONE;
 
     /* if we got an error or if we do not wait for a data connection return
        immediately */
@@ -2340,7 +2341,7 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
     /* if we reach the end of the FTP state machine here, *complete will be
        TRUE but so is ftpc->wait_data_conn, which says we need to wait for the
        data connection and therefore we are not actually complete */
-    *completep = 0;
+    *more = DOMORE_INCOMPLETE;
   }
 
   if(ftp->transfer <= PPTRANSFER_INFO) {
@@ -2362,8 +2363,8 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
         if(result)
           return result;
 
-        *completep = 1; /* this state is now complete when the server has
-                           connected back to us */
+        *more = DOMORE_DONE; /* this state is now complete when the server has
+                                connected back to us */
       }
       else {
         result = ftp_check_ctrl_on_data_wait(data, ftpc);
@@ -2382,7 +2383,8 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
        * deemed necessary and directly sent `STORE name`. If this was
        * then complete, but we are still waiting on the data connection,
        * the transfer has not been initiated yet. */
-      *completep = (int)(ftpc->wait_data_conn ? 0 : complete);
+      *more = (!ftpc->wait_data_conn && complete) ?
+        DOMORE_DONE : DOMORE_INCOMPLETE;
     }
     else {
       /* download */
@@ -2425,7 +2427,8 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
       }
 
       result = ftp_statemach(data, ftpc, &complete);
-      *completep = (int)complete;
+      if(complete)
+        *more = DOMORE_DONE;
     }
     return result;
   }
@@ -2435,7 +2438,7 @@ static CURLcode ftp_do_more(struct Curl_easy *data, int *completep)
 
   if(!ftpc->wait_data_conn) {
     /* no waiting for the data connection so this is now complete */
-    *completep = 1;
+    *more = DOMORE_DONE;
     CURL_TRC_FTP(data, "[%s] DO-MORE phase ends with %d", FTP_CSTATE(ftpc),
                  (int)result);
   }
@@ -2450,7 +2453,7 @@ static CURLcode ftp_dophase_done(struct Curl_easy *data,
                                  bool connected)
 {
   if(connected) {
-    int completed;
+    domore completed;
     CURLcode result = ftp_do_more(data, &completed);
 
     if(result) {
