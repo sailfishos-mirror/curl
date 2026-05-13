@@ -54,7 +54,6 @@
  * NetBSD 10.99.11 development.
  * It is safe to apply the workaround even if the bug is not present, as
  * the workaround reduces performance slightly. */
-#      include <sys/param.h>
 #      if  __NetBSD_Version__ <   904000000 ||  \
           (__NetBSD_Version__ >=  999000000 &&  \
            __NetBSD_Version__ <  1000000000) || \
@@ -173,7 +172,7 @@ static CURLcode Curl_sha512_256_finish(unsigned char *digest, void *context)
                            tmp_digest, NULL) ? CURLE_OK : CURLE_SSL_CIPHER;
   if(result == CURLE_OK)
     memcpy(digest, tmp_digest, CURL_SHA512_256_DIGEST_SIZE);
-  explicit_memset(tmp_digest, 0, sizeof(tmp_digest));
+  curlx_memzero(tmp_digest, sizeof(tmp_digest));
 #else /* !NEED_NETBSD_SHA512_256_WORKAROUND */
   result = EVP_DigestFinal_ex(*ctx, digest, NULL) ?
     CURLE_OK : CURLE_SSL_CIPHER;

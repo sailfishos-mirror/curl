@@ -1672,6 +1672,11 @@ if(NOT WIN32)
   check_symbol_exists("strcasecmp"      "string.h" HAVE_STRCASECMP)
   check_symbol_exists("stricmp"         "string.h" HAVE_STRICMP)
   check_symbol_exists("strcmpi"         "string.h" HAVE_STRCMPI)
+
+  check_symbol_exists("memset_s" "string.h" HAVE_MEMSET_S)
+  if(NOT HAVE_MEMSET_S)
+    check_function_exists("memset_explicit" HAVE_MEMSET_EXPLICIT)
+  endif()
 endif()
 
 if(AMIGA)
