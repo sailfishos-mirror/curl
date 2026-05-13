@@ -1542,7 +1542,7 @@ static CURLcode parseurlandfillconn(struct Curl_easy *data,
     }
 
     /* after it was parsed, get the generated normalized version */
-    uc = curl_url_get(uh, CURLUPART_URL, &newurl, 0);
+    uc = curl_url_get(uh, CURLUPART_URL, &newurl, CURLU_GET_EMPTY);
     if(uc) {
       result = Curl_uc_to_curlcode(uc);
       goto out;
