@@ -1543,7 +1543,7 @@ static CURLcode parseurlandfillconn(struct Curl_easy *data,
     }
 
     /* after it was parsed, get the generated normalized version */
-    uc = curl_url_get(uh, CURLUPART_URL, &newurl, 0);
+    uc = curl_url_get(uh, CURLUPART_URL, &newurl, CURLU_GET_EMPTY);
     if(uc) {
       result = Curl_uc_to_curlcode(uc);
       goto out;
@@ -1600,7 +1600,8 @@ static CURLcode parseurlandfillconn(struct Curl_easy *data,
     goto out;
   }
 
-  uc = curl_url_get(uh, CURLUPART_QUERY, &data->state.up.query, 0);
+  uc = curl_url_get(uh, CURLUPART_QUERY, &data->state.up.query,
+                    CURLU_GET_EMPTY);
   if(uc && (uc != CURLUE_NO_QUERY)) {
     result = CURLE_OUT_OF_MEMORY;
     goto out;
