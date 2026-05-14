@@ -57,6 +57,7 @@
 #include "multiif.h"
 #include "select.h"
 #include "vssh/vssh.h"
+#include "curlx/base64.h" /* for curlx_base64_encode() */
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -109,12 +110,14 @@ static CURLcode sftp_error_to_CURLE(int err)
 }
 
 /* Multiple options:
- * 1. data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5] is set with an MD5
+ * 1. data->set.str[STRING_SSH_HOST_PUBLIC_KEY_SHA256] is set with a SHA256
+ *    hash.
+ * 2. data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5] is set with an MD5
  *    hash (90s style auth, not sure we should have it here)
- * 2. data->set.ssh_keyfunc callback is set. Then we do trust on first
+ * 3. data->set.ssh_keyfunc callback is set. Then we do trust on first
  *    use. We even save on knownhosts if CURLKHSTAT_FINE_ADD_TO_FILE
  *    is returned by it.
- * 3. none of the above. We only accept if it is present on known hosts.
+ * 4. none of the above. We only accept if it is present on known hosts.
  *
  * Returns SSH_OK or SSH_ERROR.
  */
@@ -122,8 +125,10 @@ static int myssh_is_known(struct Curl_easy *data, struct ssh_conn *sshc)
 {
   int rc;
   ssh_key pubkey;
-  size_t hlen;
-  unsigned char *hash = NULL;
+  unsigned char *hash_sha256 = NULL;
+  size_t hlen_sha256;
+  unsigned char *hash_md5 = NULL;
+  size_t hlen_md5;
   char *found_base64 = NULL;
   char *known_base64 = NULL;
   int vstate;
@@ -139,20 +144,75 @@ static int myssh_is_known(struct Curl_easy *data, struct ssh_conn *sshc)
   if(rc != SSH_OK)
     return rc;
 
-  if(data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5]) {
-    int i;
-    char md5buffer[33];
-    const char *pubkey_md5 = data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5];
+  if(data->set.str[STRING_SSH_HOST_PUBLIC_KEY_SHA256]) {
+    const char *pubkey_sha256 =
+      data->set.str[STRING_SSH_HOST_PUBLIC_KEY_SHA256];
+    char *fingerprint_b64 = NULL;
+    size_t fingerprint_b64_len;
+    size_t pub_pos = 0;
+    size_t b64_pos = 0;
 
-    rc = ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_MD5, &hash, &hlen);
-    if(rc != SSH_OK || hlen != 16) {
+    rc = ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_SHA256,
+                                &hash_sha256, &hlen_sha256);
+    if(rc != SSH_OK || hlen_sha256 != 32) {
+      failf(data, "Denied establishing ssh session: "
+            "SHA256 fingerprint not available");
+      goto cleanup;
+    }
+
+    if(curlx_base64_encode((const uint8_t *)hash_sha256, 32, &fingerprint_b64,
+                           &fingerprint_b64_len) != CURLE_OK) {
+      rc = SSH_ERROR;
+      goto cleanup;
+    }
+
+    infof(data, "SSH SHA256 fingerprint: %s", fingerprint_b64);
+
+    /* Find the position of any = padding characters in the public key */
+    while((pubkey_sha256[pub_pos] != '=') && pubkey_sha256[pub_pos]) {
+      pub_pos++;
+    }
+
+    /* Find the position of any = padding characters in the base64 coded
+     * hostkey fingerprint */
+    while((fingerprint_b64[b64_pos] != '=') && fingerprint_b64[b64_pos]) {
+      b64_pos++;
+    }
+
+    /* Before we authenticate we check the hostkey's SHA256 fingerprint
+     * against a known fingerprint, if available.
+     */
+    if((pub_pos != b64_pos) ||
+       strncmp(fingerprint_b64, pubkey_sha256, pub_pos)) {
+      failf(data,
+            "Denied establishing ssh session: mismatch SHA256 fingerprint. "
+            "Remote %s is not equal to %s", fingerprint_b64, pubkey_sha256);
+      curlx_free(fingerprint_b64);
+      rc = SSH_ERROR;
+      goto cleanup;
+    }
+
+    curlx_free(fingerprint_b64);
+
+    rc = SSH_OK;
+    goto cleanup;
+  }
+
+  if(data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5]) {
+    const char *pubkey_md5 = data->set.str[STRING_SSH_HOST_PUBLIC_KEY_MD5];
+    char md5buffer[33];
+    int i;
+
+    rc = ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_MD5,
+                                &hash_md5, &hlen_md5);
+    if(rc != SSH_OK || hlen_md5 != 16) {
       failf(data,
             "Denied establishing ssh session: MD5 fingerprint not available");
       goto cleanup;
     }
 
     for(i = 0; i < 16; i++)
-      curl_msnprintf(&md5buffer[i * 2], 3, "%02x", hash[i]);
+      curl_msnprintf(&md5buffer[i * 2], 3, "%02x", hash_md5[i]);
 
     infof(data, "SSH MD5 fingerprint: %s", md5buffer);
 
@@ -297,8 +357,10 @@ cleanup:
     /* !checksrc! disable BANNEDFUNC 1 */
     free(known_base64); /* allocated by libssh, deallocate with system free */
   }
-  if(hash)
-    ssh_clean_pubkey_hash(&hash);
+  if(hash_sha256)
+    ssh_clean_pubkey_hash(&hash_sha256);
+  if(hash_md5)
+    ssh_clean_pubkey_hash(&hash_md5);
   ssh_key_free(pubkey);
   if(knownhostsentry) {
     ssh_knownhosts_entry_free(knownhostsentry);
