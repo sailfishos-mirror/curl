@@ -63,7 +63,7 @@ CURLcode Curl_creds_create(const char *user,
     goto out;
   }
 
-  /* NUL terminator for user already part of struct */
+  /* null-terminator for user already part of struct */
   creds = curlx_calloc(1, sizeof(*creds) +
                        ulen + plen + 1 + olen + 1 + salen + 1 + sslen + 1);
   if(!creds) {
@@ -187,5 +187,4 @@ void Curl_creds_trace(struct Curl_easy *data, struct Curl_creds *creds,
   else
     CURL_TRC_M(data, "%s: -", msg);
 }
-
 #endif

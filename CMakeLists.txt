@@ -592,7 +592,7 @@ option(BUILD_MISC_DOCS "Build misc man pages (e.g. curl-config and mk-ca-bundle)
 option(ENABLE_CURL_MANUAL "Build the man page for curl and enable its -M/--manual option" ON)
 
 if((ENABLE_CURL_MANUAL OR BUILD_LIBCURL_DOCS) AND NOT Perl_FOUND)
-  message(WARNING "Perl not found. Will not build manuals.")
+  message(WARNING "Perl not found. Cannot build manuals.")
 endif()
 
 # If we are on AIX, do the _ALL_SOURCE magic
@@ -2163,8 +2163,8 @@ if(NOT CURL_DISABLE_INSTALL)
       set(_explicit_libs "")
       get_target_property(_imported "${_lib}" IMPORTED)
       if(NOT _imported)
-        # Reading the LOCATION property on non-imported target will error out.
-        # Assume the user will not need this information in the .pc file.
+        # Reading the LOCATION property on non-imported target does error out.
+        # Assume the user does not need this information in the .pc file.
         continue()
       endif()
       set(_libdirs "")
