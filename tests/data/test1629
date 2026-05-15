@@ -20,6 +20,10 @@ Set-Cookie: something=1; Domain=co.uk.; Path=/
 
 # Client-side
 <client>
+<features>
+PSL
+cookies
+</features>
 <server>
 http
 </server>
