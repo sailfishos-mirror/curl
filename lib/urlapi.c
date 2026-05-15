@@ -1231,9 +1231,12 @@ static CURLUcode redirect_url(const char *base, const char *relurl,
   const char *cutoff = NULL;
   size_t prelen;
   CURLUcode uc;
+  /* this can get here with a NULL u->scheme only if asked to use the default
+     scheme, so allow fallback to that */
+  const char *scheme = u->scheme ? u->scheme : DEFAULT_SCHEME;
 
   /* protsep points to the start of the hostname, after [scheme]:// */
-  const char *protsep = base + strlen(u->scheme) + 3;
+  const char *protsep = base + strlen(scheme) + 3;
   DEBUGASSERT(base && relurl && u); /* all set here */
   if(!base)
     return CURLUE_MALFORMED_INPUT; /* should never happen */
