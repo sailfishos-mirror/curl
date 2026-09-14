@@ -3621,7 +3621,7 @@ static CURLcode http_header_t(struct Curl_easy *data,
     CURLcode result = Curl_build_unencoding_stack(data, v, TRUE);
     if(result)
       return result;
-    if(!k->chunk && data->set.http_transfer_encoding) {
+    if(!k->chunk) {
       /* if this is not chunked, only close can signal the end of this
        * transfer as Content-Length is said not to be trusted for
        * transfer-encoding! */
