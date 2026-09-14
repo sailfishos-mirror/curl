@@ -3248,7 +3248,7 @@ static CURLcode http_header_c(struct Curl_easy *data,
      list also is fine and then we should accept them all as long as they are
      the same value. Different values trigger error.
    */
-  v = (!k->http_bodyless && !data->set.ignorecl) ?
+  v = (!k->http_bodyless && !data->set.ignorecl && !k->ignore_cl) ?
     HD_VAL(hd, hdlen, "Content-Length:") : NULL;
   if(v) {
     do {
