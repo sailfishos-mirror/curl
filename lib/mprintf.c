@@ -1514,6 +1514,5 @@ int curl_mvsprintf(char *buffer, const char *format, va_list args)
 
 int curl_mvprintf(const char *format, va_list args)
 {
-  return formatf(stdout, fputc_wrapper, fwrite_wrapper, NULL, format, args);
+  return curl_mvfprintf(stdout, format, args);
 }
-
