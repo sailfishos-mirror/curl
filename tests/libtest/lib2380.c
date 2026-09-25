@@ -81,6 +81,8 @@ static CURLcode test_lib2380(const char *URL)
   setrlimit(RLIMIT_FSIZE, &rl_orig);
 
 test_cleanup:
+#else
+  (void)URL; /* unused */
 #endif
   return result;
 }
