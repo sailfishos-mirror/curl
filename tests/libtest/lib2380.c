@@ -30,8 +30,6 @@
 #if defined(HAVE_GETRLIMIT) && defined(HAVE_SETRLIMIT) &&       \
   defined(RLIMIT_FSIZE) && defined(SIGXFSZ)
 #define T2380_ENABLE_TEST 1
-#else
-#error everything
 #endif
 
 /* set a tiny limit to trigger easily */
