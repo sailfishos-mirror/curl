@@ -75,7 +75,7 @@ static CURLcode test_lib2380(const char *URL)
       }
     }
     curlx_fclose(f);
-  };
+  }
 
   /* restore the original value */
   setrlimit(RLIMIT_FSIZE, &rl_orig);
