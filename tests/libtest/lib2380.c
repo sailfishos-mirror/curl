@@ -22,7 +22,9 @@
  *
  ***************************************************************************/
 #include "first.h"
+#ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h> /* RLIMIT_FSIZE */
+#endif
 #include <signal.h>  /* SIGXFSZ */
 
 #if defined(HAVE_GETRLIMIT) && defined(HAVE_SETRLIMIT) &&       \
